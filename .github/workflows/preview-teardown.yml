@@ -38,7 +38,7 @@ jobs:
           delete-only-pre-release-versions: false
           ignore-versions: '^(latest|buildcache|staging|production|v?\d+\.\d+\.\d+)$'
 
-      - uses: marocchino/sticky-pull-request-comment@v2
+      - uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: preview-api
           message: '🧹 API preview environment destroyed and database dropped.'

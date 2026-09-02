@@ -80,7 +80,7 @@ jobs:
           exit 1
 
       - name: Comment the preview URL on the PR
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: preview-api
           message: |
@@ -99,7 +99,7 @@ jobs:
 
       - name: Report failure on the PR
         if: failure()
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: preview-api
           message: |
