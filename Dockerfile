@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # ---------- deps ----------
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 RUN corepack enable
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
@@ -9,7 +9,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store && pnpm install --frozen-lockfile
 
 # ---------- build ----------
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 RUN corepack enable
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
@@ -21,7 +21,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store && pnpm prune --prod
 
 # ---------- runtime ----------
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 RUN apk add --no-cache dumb-init curl openssl && \
     addgroup -g 1001 -S nodejs && \
     adduser  -u 1001 -S nestjs -G nodejs
