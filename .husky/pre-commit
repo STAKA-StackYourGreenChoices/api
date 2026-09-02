@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+# Fast gate. Anything slower than a few seconds belongs in pre-push, not here —
+# a pre-commit hook people wait on is a pre-commit hook people --no-verify past.
+set -e
+
+echo "→ lint-staged (eslint + prettier on staged files)"
+pnpm lint-staged
+
+echo "→ typecheck"
+pnpm typecheck
+
+echo "→ unit tests"
+pnpm test:unit --silent --passWithNoTests

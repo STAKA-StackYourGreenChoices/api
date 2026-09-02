@@ -1,0 +1,6 @@
+# Migrations and pipeline changes get a second pair of eyes by default —
+# the two categories where a mistake is expensive and tests won't catch it.
+*                       @yourorg/engineers
+/.github/workflows/     @yourorg/maintainers
+/prisma/migrations/     @yourorg/maintainers
+/Dockerfile             @yourorg/maintainers

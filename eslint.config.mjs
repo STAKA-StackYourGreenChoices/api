@@ -25,6 +25,22 @@ export default tseslint.config(
     },
   },
   {
+    // Generated + build output is never linted.
+    ignores: ['dist/**', 'coverage/**', 'generated/**'],
+  },
+  {
+    // Test files deal in untyped JSON response bodies and mock objects.
+    // Demanding full type-safety there produces noise, not safety.
+    files: ['**/*.spec.ts', 'test/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/unbound-method': 'off',
+    },
+  },
+  {
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',

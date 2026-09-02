@@ -1,0 +1,14 @@
+node_modules
+dist
+generated
+coverage
+.git
+.github
+.husky
+.env*
+*.md
+test
+**/*.spec.ts
+Dockerfile*
+docker-compose*
+.impactlens

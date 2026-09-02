@@ -1,0 +1,153 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  static:
+    name: lint + typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma generate
+      - name: Lint
+        run: pnpm lint:ci
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Format check
+        run: pnpm format:check
+
+  test-unit:
+    name: test-unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma generate
+      - run: pnpm test:unit --coverage
+      - uses: codecov/codecov-action@v5
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        with:
+          files: ./coverage/lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  test-integration:
+    name: test-integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma generate
+      # Testcontainers uses the runner's own Docker daemon — nothing to configure.
+      - run: pnpm test:integration
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: jest-failure-logs
+          path: coverage/
+          retention-days: 5
+
+  openapi-contract:
+    name: openapi-contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma generate
+
+      - name: Spec is committed and current
+        run: |
+          pnpm openapi:generate
+          git diff --exit-code openapi.json \
+            || { echo "::error file=openapi.json::Stale spec. Run 'pnpm openapi:generate' and commit."; exit 1; }
+
+      - name: No undeclared breaking changes
+        if: github.event_name == 'pull_request'
+        run: |
+          git show origin/${{ github.base_ref }}:openapi.json > /tmp/base.json 2>/dev/null || exit 0
+          npx --yes @redocly/cli@latest diff /tmp/base.json openapi.json --format=text | tee /tmp/diff.txt
+          if grep -qi 'breaking' /tmp/diff.txt; then
+            if printf '%s' "${{ github.event.pull_request.title }}" | grep -qE '(!:|BREAKING)'; then
+              echo "::warning::Breaking change acknowledged in the PR title."
+            else
+              echo "::error::Breaking API change. Mark the PR title with 'feat!:' or document the migration."
+              exit 1
+            fi
+          fi
+
+  docker-build:
+    name: build
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: write, security-events: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        run: |
+          SHA="$(git rev-parse --short HEAD)"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "tag=pr-${{ github.event.pull_request.number }}-${SHA}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${SHA}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64
+          tags: ghcr.io/${{ github.repository_owner }}/api:${{ steps.meta.outputs.tag }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/api:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/api:buildcache,mode=max
+          provenance: false
+          build-args: GIT_SHA=${{ github.sha }}
+
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/${{ github.repository_owner }}/api:${{ steps.meta.outputs.tag }}
+          format: sarif
+          output: trivy.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true # don't block on CVEs with no available fix
+          exit-code: '1'
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true
+        with: { sarif_file: trivy.sarif }

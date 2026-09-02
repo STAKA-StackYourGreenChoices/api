@@ -1,0 +1,53 @@
+// Prisma schema for the API.
+// Migrations live here and version alongside the code that reads them.
+
+generator client {
+  // Explicit output keeps the generated client outside node_modules, so
+  // `pnpm prune --prod` in the Docker build can never strip it.
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  orders    Order[]
+}
+
+model Order {
+  id        String      @id @default(uuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Money is stored in minor units (cents) as integers — never floats.
+  subtotal  Int
+  discount  Int         @default(0)
+  status    OrderStatus @default(PENDING)
+  createdAt DateTime    @default(now())
+  items     OrderItem[]
+
+  @@index([userId])
+}
+
+model OrderItem {
+  id        String @id @default(uuid())
+  orderId   String
+  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sku       String
+  quantity  Int
+  unitPrice Int
+
+  @@index([orderId])
+}

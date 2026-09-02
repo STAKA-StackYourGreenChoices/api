@@ -57,3 +57,9 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # ImpactLens index cache
 .impactlens/
+
+# Prisma generated client
+/generated
+
+# Generated OpenAPI artefacts are committed; build output is not
+/client

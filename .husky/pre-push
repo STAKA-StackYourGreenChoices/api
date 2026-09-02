@@ -1,0 +1,38 @@
+#!/usr/bin/env sh
+# The full suite, including the DB-backed ones. Requires a running Docker
+# daemon (Testcontainers). Skip deliberately with:
+#   SKIP_INTEGRATION=1 git push
+set -e
+
+echo "→ lint"
+pnpm lint:ci
+
+echo "→ format check"
+pnpm format:check
+
+echo "→ unit tests"
+pnpm test:unit
+
+echo "→ openapi spec is current"
+pnpm openapi:generate
+if ! git diff --quiet -- openapi.json; then
+  echo "openapi.json is stale — it has been regenerated. Commit it and push again." >&2
+  exit 1
+fi
+
+if [ "${SKIP_INTEGRATION:-0}" = "1" ]; then
+  echo "→ integration + e2e SKIPPED (SKIP_INTEGRATION=1)"
+  exit 0
+fi
+
+if ! docker info >/dev/null 2>&1; then
+  echo "Docker is not running — integration and e2e tests need it (Testcontainers)." >&2
+  echo "Start Docker, or push with SKIP_INTEGRATION=1 to bypass." >&2
+  exit 1
+fi
+
+echo "→ integration tests (real postgres)"
+pnpm test:integration
+
+echo "→ e2e tests"
+pnpm test:e2e

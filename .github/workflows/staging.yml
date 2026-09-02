@@ -1,0 +1,87 @@
+name: staging
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-staging-api
+  cancel-in-progress: false # never cancel a deploy mid-flight
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://api-staging.yourdomain.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: vars
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/api:${{ steps.vars.outputs.sha }}
+            ghcr.io/${{ github.repository_owner }}/api:staging
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/api:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/api:buildcache,mode=max
+          provenance: false
+          build-args: GIT_SHA=${{ github.sha }}
+
+      - name: Deploy
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          echo "${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_ed25519 deploy@${{ secrets.DEPLOY_HOST }} \
+            "deploy-staging api ${{ steps.vars.outputs.sha }}"
+
+      - name: Publish typed client to the GitHub npm registry
+        continue-on-error: true
+        run: |
+          npx --yes openapi-typescript-codegen \
+            --input openapi.json --output ./client/src --client fetch --name ApiClient
+          cd client
+          cat > package.json <<JSON
+          {
+            "name": "@${{ github.repository_owner }}/api-client",
+            "version": "0.0.0-${{ steps.vars.outputs.sha }}",
+            "main": "src/index.ts",
+            "publishConfig": { "registry": "https://npm.pkg.github.com" }
+          }
+          JSON
+          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Load smoke test
+        continue-on-error: true
+        run: |
+          docker run --rm -i grafana/k6 run - <<'K6'
+          import http from 'k6/http';
+          import { check } from 'k6';
+          export const options = {
+            vus: 20, duration: '30s',
+            thresholds: { http_req_duration: ['p(95)<500'], http_req_failed: ['rate<0.01'] },
+          };
+          export default function () {
+            const r = http.get('https://api-staging.yourdomain.com/health');
+            check(r, { 'status 200': (res) => res.status === 200 });
+          }
+          K6

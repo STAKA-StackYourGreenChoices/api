@@ -1,0 +1,44 @@
+name: preview-teardown
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+
+jobs:
+  teardown:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Install SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo "${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      # Teardown must be idempotent and must never fail the workflow: a PR
+      # closed twice, or closed after a failed deploy, still has to clean up.
+      - name: Destroy preview environment
+        continue-on-error: true
+        run: |
+          ssh -i ~/.ssh/id_ed25519 deploy@${{ secrets.DEPLOY_HOST }} \
+            "preview-down ${{ github.event.pull_request.number }}"
+
+      - name: Delete PR images from GHCR
+        uses: actions/delete-package-versions@v5
+        continue-on-error: true
+        with:
+          package-name: api
+          package-type: container
+          delete-only-pre-release-versions: false
+          ignore-versions: '^(latest|buildcache|staging|production|v?\d+\.\d+\.\d+)$'
+
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: preview-api
+          message: '🧹 API preview environment destroyed and database dropped.'
