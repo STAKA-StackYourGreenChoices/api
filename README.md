@@ -1,97 +1,69 @@
 # api
 
-NestJS API. Prisma + PostgreSQL. Ships as a Docker image to GHCR; deployed by
-the pipeline in [`infra`](../infra).
+NestJS + Prisma + PostgreSQL.
 
-## Local development
+## Run it
 
 ```bash
-nvm use                                       # Node 22, from .nvmrc
 cp .env.example .env
-docker compose -f ../infra/docker-compose.dev.yml up -d   # postgres, redis, mailpit
 pnpm install
 pnpm prisma generate
-pnpm migrate:dev
-pnpm seed
-pnpm start:dev                                # :7070
+pnpm migrate:deploy
+pnpm seed          # optional
+pnpm start:dev     # http://localhost:7070
 ```
 
-Swagger UI at `/docs`. Health at `/health` (checks the DB) and `/health/live`
-(dependency-free — this is what the container HEALTHCHECK hits).
-
-## Tests
-
-| Command | What it is | Needs Docker |
-|---|---|---|
-| `pnpm test:unit` | Fully mocked. Runs on every commit. | no |
-| `pnpm test:integration` | Real PostgreSQL via Testcontainers. | **yes** |
-| `pnpm test:e2e` | The full HTTP app, real routes, real DB. | **yes** |
-| `pnpm test:all` | All three. | **yes** |
+That assumes a PostgreSQL on `localhost:5432` with user `dev` / password `dev`
+and a database called `app` — which is what `DATABASE_URL` in `.env.example`
+points at. If you don't have one, start it with Docker:
 
 ```bash
-pnpm test:all
+docker compose -f ../infra/docker-compose.dev.yml up -d    # start
+docker compose -f ../infra/docker-compose.dev.yml down     # stop
 ```
 
-Mocking your ORM tests your mocks. Anything touching a repository, a
-transaction, a migration or a raw query gets a real database.
-
-## Git hooks
-
-Installed automatically by `pnpm install` (husky).
-
-| Hook | Runs | Bypass |
-|---|---|---|
-| `pre-commit` | lint-staged, typecheck, unit tests | `git commit --no-verify` |
-| `commit-msg` | commitlint (Conventional Commits) | `--no-verify` |
-| `pre-push` | lint, format, unit, **openapi freshness**, integration, e2e | `SKIP_INTEGRATION=1 git push` |
-
-Commits must be [Conventional Commits](https://www.conventionalcommits.org/) —
-`release-please` reads them to compute the version bump and changelog.
-
-```
-feat(orders): add refund endpoint
-fix(orders): clamp total when discount exceeds subtotal
-chore(deps): bump prisma to 6.9.1
-```
-
-## The OpenAPI contract
-
-`openapi.json` is **committed**. It is what `web` and `mobile` generate their
-typed clients from, so it must never drift from the code.
+If you already run Postgres natively, skip the Docker step — port 5432 can only
+have one owner. Point `DATABASE_URL` at your own database instead, or create the
+expected one:
 
 ```bash
-pnpm openapi:generate     # then commit the result
+psql -d postgres -c "CREATE ROLE dev LOGIN PASSWORD 'dev' CREATEDB;"
+createdb -O dev app
 ```
 
-CI regenerates it and fails if the working tree is dirty, then diffs it against
-`main` and fails on a breaking change unless the PR title is marked `feat!:`.
+- Swagger UI — `/docs`
+- Health — `/health` (checks the DB), `/health/live` (no dependencies)
 
-## Migrations
+## Scripts
 
-```bash
-pnpm migrate:dev --name add_refunds   # authoring
-pnpm migrate:deploy                   # what the server runs
-```
+| Command | What it does |
+|---|---|
+| `pnpm start:dev` | Run with watch mode |
+| `pnpm build` | Compile to `dist/` |
+| `pnpm start:prod` | Run the compiled build |
+| `pnpm lint` | ESLint, autofixing what it can |
+| `pnpm test` | Unit tests (mocked, no Docker) |
+| `pnpm migrate:dev` | Create and apply a migration |
+| `pnpm migrate:deploy` | Apply existing migrations (what the server runs) |
+| `pnpm openapi:generate` | Regenerate `openapi.json` |
 
-> **Migrations must be backward compatible.** The zero-downtime rollout runs the
-> old and new containers against the *same* schema for ~35 seconds. Dropping a
-> column the old code still selects means 500s for that window.
->
-> Expand → migrate → contract, across releases:
-> 1. Release N: add the new column (nullable), write both, read old
-> 2. Backfill
-> 3. Release N+1: read new
-> 4. Release N+2: drop the old column
->
-> This is also what makes rollback safe — rolling back to N never meets a schema
-> it doesn't understand.
+`pnpm test:integration` and `pnpm test:e2e` exist and use a real PostgreSQL via
+Testcontainers, so they need Docker running. Nothing forces you to run them.
 
 ## Docker
 
 ```bash
-docker build -t api:local --build-arg GIT_SHA=$(git rev-parse --short HEAD) .
+docker build -t api:local .
 ```
 
-`prisma` is a **production** dependency on purpose: the deploy scripts run
-`node_modules/.bin/prisma migrate deploy` inside this image, after dev
-dependencies have been pruned.
+`prisma` is a **production** dependency on purpose — the image runs
+`prisma migrate deploy` at startup, after dev dependencies are pruned.
+
+## Migrations
+
+```bash
+pnpm migrate:dev --name add_refunds
+```
+
+Migrations live in `prisma/migrations/` and are committed alongside the code
+that reads them.
