@@ -20,12 +20,14 @@ enum OrderStatus {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  createdAt DateTime @default(now())
-  orders    Order[]
+  id           String        @id @default(uuid())
+  email        String        @unique
+  name         String
+  createdAt    DateTime      @default(now())
+  orders       Order[]
+  digitalCards DigitalCard[] 
 }
+
 
 model Order {
   id        String      @id @default(uuid())
@@ -86,5 +88,18 @@ model SustainabilityInfo {
   verifiedAt           DateTime?
   updatedAt            DateTime  @updatedAt
 }
+
+model DigitalCard {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@index([userId])
+}
+
 
 
