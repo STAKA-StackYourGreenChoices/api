@@ -51,3 +51,13 @@ model OrderItem {
 
   @@index([orderId])
 }
+
+model Brand {
+  id          String    @id @default(uuid())
+  name        String
+  logoUrl     String?
+  description String?
+  createdAt   DateTime  @default(now())
+  products    Product[]
+}
+
