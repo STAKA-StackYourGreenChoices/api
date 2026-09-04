@@ -61,3 +61,19 @@ model Brand {
   products    Product[]
 }
 
+model Product {
+  id                 String              @id @default(uuid())
+  gtin               String              @unique
+  sku                String              @unique
+  name               String
+  imageUrl           String?
+  brandId            String
+  brand              Brand               @relation(fields: [brandId], references: [id])
+  sustainabilityInfo SustainabilityInfo?
+  digitalCards       DigitalCard[]
+  createdAt          DateTime            @default(now())
+  @@index([gtin])
+  @@index([sku])
+}
+
+
