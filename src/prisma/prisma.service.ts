@@ -4,8 +4,7 @@ import { PrismaClient } from '../../generated/prisma';
 @Injectable()
 export class PrismaService
   extends PrismaClient
-  implements OnModuleInit, OnModuleDestroy
-{
+  implements OnModuleInit, OnModuleDestroy {
   async onModuleInit(): Promise<void> {
     await this.$connect();
   }
@@ -14,13 +13,10 @@ export class PrismaService
     await this.$disconnect();
   }
 
-  /**
-   * Wipes every table. Used by the integration suite between tests —
-   * TRUNCATE is orders of magnitude faster than re-running migrations.
-   */
   async truncateAll(): Promise<void> {
     await this.$executeRawUnsafe(
-      'TRUNCATE TABLE "OrderItem", "Order", "User" RESTART IDENTITY CASCADE',
+      'TRUNCATE TABLE "DigitalCard", "SustainabilityInfo", "OrderItem", "Order", "Product", "Brand", "User" RESTART IDENTITY CASCADE',
     );
   }
+
 }
