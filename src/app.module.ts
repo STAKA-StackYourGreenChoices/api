@@ -6,6 +6,7 @@ import { HealthModule } from './health/health.module';
 import { OrdersModule } from './orders/orders.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProductsModule } from './products/products.module';
+import { DigitalCardsModule } from './digital-cards/digital-cards.module';
 
 @Module({
   imports: [
@@ -13,9 +14,10 @@ import { ProductsModule } from './products/products.module';
     PrismaModule,
     HealthModule,
     OrdersModule,
-    ProductsModule
+    ProductsModule,
+    DigitalCardsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
