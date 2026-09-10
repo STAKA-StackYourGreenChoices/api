@@ -75,7 +75,9 @@ async function main() {
     },
   });
 
-  console.log('Seed complete: 1 user, 1 order, 1 brand, 1 product, 1 digital card.');
+  console.log(
+    'Seed complete: 1 user, 1 order, 1 brand, 1 product, 1 digital card.',
+  );
 }
 
 main()

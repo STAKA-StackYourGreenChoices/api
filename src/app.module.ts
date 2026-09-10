@@ -20,4 +20,4 @@ import { DigitalCardsModule } from './digital-cards/digital-cards.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

@@ -4,7 +4,8 @@ import { PrismaClient } from '../../generated/prisma';
 @Injectable()
 export class PrismaService
   extends PrismaClient
-  implements OnModuleInit, OnModuleDestroy {
+  implements OnModuleInit, OnModuleDestroy
+{
   async onModuleInit(): Promise<void> {
     await this.$connect();
   }
@@ -18,5 +19,4 @@ export class PrismaService
       'TRUNCATE TABLE "DigitalCard", "SustainabilityInfo", "OrderItem", "Order", "Product", "Brand", "User" RESTART IDENTITY CASCADE',
     );
   }
-
 }
