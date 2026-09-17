@@ -69,12 +69,76 @@ export class AuthService {
     return this.issueTokens(safeUser);
   }
 
-  private async issueTokens(user: AuthenticatedUser) {
-    const accessToken = await this.jwt.signAsync({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
+  async refresh(refreshToken: string) {
+    return this.prisma.$transaction(async (transaction) => {
+      const current = await transaction.refreshToken.findUnique({
+        where: { token: refreshToken },
+        select: {
+          token: true,
+          expiresAt: true,
+          user: {
+            select: {
+              ...safeUserSelect,
+              deletedAt: true,
+            },
+          },
+        },
+      });
+
+      if (
+        !current ||
+        current.expiresAt <= new Date() ||
+        current.user.deletedAt !== null ||
+        current.user.status !== Status.ACTIVE
+      ) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      const deleted = await transaction.refreshToken.deleteMany({
+        where: { token: refreshToken },
+      });
+      if (deleted.count !== 1) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      const accessToken = await this.issueAccessToken(current.user);
+      const replacementToken = randomBytes(48).toString('hex');
+      await transaction.refreshToken.create({
+        data: {
+          token: replacementToken,
+          userId: current.user.id,
+          expiresAt: new Date(Date.now() + this.getRefreshLifetime()),
+        },
+      });
+
+      const { deletedAt, ...user } = current.user;
+      void deletedAt;
+      return { accessToken, refreshToken: replacementToken, user };
     });
+  }
+
+  async logout(refreshToken: string) {
+    const current = await this.prisma.refreshToken.findUnique({
+      where: { token: refreshToken },
+      select: { expiresAt: true },
+    });
+
+    if (!current || current.expiresAt <= new Date()) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const deleted = await this.prisma.refreshToken.deleteMany({
+      where: { token: refreshToken },
+    });
+    if (deleted.count !== 1) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    return { success: true };
+  }
+
+  private async issueTokens(user: AuthenticatedUser) {
+    const accessToken = await this.issueAccessToken(user);
     const refreshToken = randomBytes(48).toString('hex');
     const refreshLifetime = this.getRefreshLifetime();
 
@@ -87,6 +151,16 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken, user };
+  }
+
+  private issueAccessToken(
+    user: Pick<AuthenticatedUser, 'id' | 'email' | 'role'>,
+  ) {
+    return this.jwt.signAsync({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
   }
 
   private getRefreshLifetime() {
