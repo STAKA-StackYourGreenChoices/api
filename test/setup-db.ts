@@ -9,6 +9,7 @@ import {
   StartedPostgreSqlContainer,
 } from '@testcontainers/postgresql';
 import { execSync } from 'node:child_process';
+import { join } from 'node:path';
 
 let container: StartedPostgreSqlContainer | undefined;
 
@@ -24,7 +25,13 @@ export async function startTestDatabase(): Promise<StartedPostgreSqlContainer> {
 
   process.env.DATABASE_URL = container.getConnectionUri();
 
-  execSync('node_modules/.bin/prisma migrate deploy', {
+  const prismaBinary = join(
+    process.cwd(),
+    'node_modules',
+    '.bin',
+    process.platform === 'win32' ? 'prisma.cmd' : 'prisma',
+  );
+  execSync(`"${prismaBinary}" migrate deploy`, {
     stdio: 'inherit',
     env: process.env,
   });
