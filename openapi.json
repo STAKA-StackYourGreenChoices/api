@@ -282,6 +282,172 @@
           "orders"
         ]
       }
+    },
+    "/products/gtin/{gtin}": {
+      "get": {
+        "operationId": "ProductsController_findByGtin",
+        "parameters": [
+          {
+            "name": "gtin",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No product found for this GTIN"
+          }
+        },
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/products/sku/{sku}": {
+      "get": {
+        "operationId": "ProductsController_findBySku",
+        "parameters": [
+          {
+            "name": "sku",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No product found for this SKU"
+          }
+        },
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/digital-cards": {
+      "post": {
+        "operationId": "DigitalCardsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDigitalCardDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DigitalCardDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown GTIN or user not found"
+          }
+        },
+        "tags": [
+          "digital-cards"
+        ]
+      }
+    },
+    "/digital-cards/user/{userId}": {
+      "get": {
+        "operationId": "DigitalCardsController_findByUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DigitalCardDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "digital-cards"
+        ]
+      }
+    },
+    "/digital-cards/{id}": {
+      "get": {
+        "operationId": "DigitalCardsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DigitalCardDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "digital-cards"
+        ]
+      }
     }
   },
   "info": {
@@ -415,6 +581,215 @@
         "required": [
           "userId",
           "items"
+        ]
+      },
+      "BrandDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "SustainabilityInfoDto": {
+        "type": "object",
+        "properties": {
+          "carbonScoreGrams": {
+            "type": "number"
+          },
+          "recyclabilityPercent": {
+            "type": "number"
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "verifiedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "carbonScoreGrams",
+          "recyclabilityPercent",
+          "verified"
+        ]
+      },
+      "ProductDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "gtin": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "imageUrl": {
+            "type": "string"
+          },
+          "brand": {
+            "$ref": "#/components/schemas/BrandDto"
+          },
+          "sustainabilityInfo": {
+            "$ref": "#/components/schemas/SustainabilityInfoDto"
+          }
+        },
+        "required": [
+          "id",
+          "gtin",
+          "sku",
+          "name",
+          "brand"
+        ]
+      },
+      "CreateDigitalCardDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "gtin": {
+            "type": "string",
+            "example": "0000614166626",
+            "description": "GTIN from scanned barcode"
+          }
+        },
+        "required": [
+          "userId",
+          "gtin"
+        ]
+      },
+      "CardUserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email"
+        ]
+      },
+      "CardBrandDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "CardSustainabilityDto": {
+        "type": "object",
+        "properties": {
+          "carbonScoreGrams": {
+            "type": "number"
+          },
+          "recyclabilityPercent": {
+            "type": "number"
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "verifiedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "carbonScoreGrams",
+          "recyclabilityPercent",
+          "verified"
+        ]
+      },
+      "CardProductDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "gtin": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "imageUrl": {
+            "type": "string"
+          },
+          "brand": {
+            "$ref": "#/components/schemas/CardBrandDto"
+          },
+          "sustainabilityInfo": {
+            "$ref": "#/components/schemas/CardSustainabilityDto"
+          }
+        },
+        "required": [
+          "id",
+          "gtin",
+          "sku",
+          "name",
+          "brand"
+        ]
+      },
+      "DigitalCardDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/CardUserDto"
+          },
+          "product": {
+            "$ref": "#/components/schemas/CardProductDto"
+          }
+        },
+        "required": [
+          "id",
+          "createdAt",
+          "user",
+          "product"
         ]
       }
     }

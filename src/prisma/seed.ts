@@ -1,16 +1,12 @@
-/**
- * Deterministic seed data for preview environments and local development.
- *
- * IDs are fixed on purpose: Playwright and Flutter fixtures hard-code them, so
- * the dataset must be byte-identical on every run. Never seed a preview from a
- * production dump — see §5.5 of the DevOps playbook.
- */
 import { PrismaClient, OrderStatus } from '../../generated/prisma';
 
 const prisma = new PrismaClient();
 
 const USER_ID = '00000000-0000-4000-8000-000000000001';
 const ORDER_ID = '00000000-0000-4000-8000-000000000101';
+const BRAND_ID = '00000000-0000-4000-8000-000000000201';
+const PRODUCT_ID = '00000000-0000-4000-8000-000000000301';
+const CARD_ID = '00000000-0000-4000-8000-000000000401';
 const DEMO_PASSWORD_HASH =
   '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
 
@@ -44,7 +40,51 @@ async function main() {
     },
   });
 
-  console.log('Seed complete: 1 user, 1 order, 2 items.');
+  const brand = await prisma.brand.upsert({
+    where: { id: BRAND_ID },
+    update: {},
+    create: {
+      id: BRAND_ID,
+      name: 'GreenCo',
+      description: 'Sustainable products for a greener planet.',
+      logoUrl: 'https://placehold.co/100x100?text=GreenCo',
+    },
+  });
+
+  const product = await prisma.product.upsert({
+    where: { id: PRODUCT_ID },
+    update: {},
+    create: {
+      id: PRODUCT_ID,
+      gtin: '00614141000418',
+      sku: 'SKU-ECO-01',
+      name: 'Eco Bottle 500ml',
+      imageUrl: 'https://placehold.co/400x400?text=EcoBottle',
+      brandId: brand.id,
+      sustainabilityInfo: {
+        create: {
+          carbonScoreGrams: 120,
+          recyclabilityPercent: 95,
+          verified: true,
+          verifiedAt: new Date('2026-01-15'),
+        },
+      },
+    },
+  });
+
+  await prisma.digitalCard.upsert({
+    where: { id: CARD_ID },
+    update: {},
+    create: {
+      id: CARD_ID,
+      userId: user.id,
+      productId: product.id,
+    },
+  });
+
+  console.log(
+    'Seed complete: 1 user, 1 order, 1 brand, 1 product, 1 digital card.',
+  );
 }
 
 main()

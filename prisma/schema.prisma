@@ -44,6 +44,7 @@ model User {
   emailVerificationToken String?        @unique
   passwordResetToken     String?        @unique
   passwordResetExpiry    DateTime?
+  digitalCards           DigitalCard[] 
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
   deletedAt              DateTime?
@@ -62,6 +63,7 @@ model RefreshToken {
   @@index([userId])
   @@index([token])
 }
+
 
 model Order {
   id        String      @id @default(uuid())
@@ -87,3 +89,53 @@ model OrderItem {
 
   @@index([orderId])
 }
+
+model Brand {
+  id          String    @id @default(uuid())
+  name        String
+  logoUrl     String?
+  description String?
+  createdAt   DateTime  @default(now())
+  products    Product[]
+}
+
+model Product {
+  id                 String              @id @default(uuid())
+  gtin               String              @unique
+  sku                String              @unique
+  name               String
+  imageUrl           String?
+  brandId            String
+  brand              Brand               @relation(fields: [brandId], references: [id])
+  sustainabilityInfo SustainabilityInfo?
+  digitalCards       DigitalCard[]
+  createdAt          DateTime            @default(now())
+  @@index([gtin])
+  @@index([sku])
+}
+
+model SustainabilityInfo {
+  id                   String    @id @default(uuid())
+  productId            String    @unique
+  product              Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  carbonScoreGrams     Int
+  recyclabilityPercent Int
+  verified             Boolean   @default(false)
+  verifiedAt           DateTime?
+  updatedAt            DateTime  @updatedAt
+}
+
+model DigitalCard {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@index([userId])
+}
+
+
+

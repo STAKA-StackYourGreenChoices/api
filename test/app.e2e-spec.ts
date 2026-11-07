@@ -132,4 +132,112 @@ describe('API (e2e)', () => {
       .get('/orders/00000000-0000-4000-8000-0000000000ff')
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(404));
+
+  describe('Products (e2e)', () => {
+    beforeEach(async () => {
+      const brand = await prisma.brand.create({
+        data: { id: 'brand-e2e', name: 'Brand E2E' },
+      });
+      await prisma.product.create({
+        data: {
+          id: 'prod-e2e',
+          gtin: '00614141000418',
+          sku: 'SKU-E2E-01',
+          name: 'E2E Product',
+          brandId: brand.id,
+        },
+      });
+    });
+
+    it('GET /products/gtin/:gtin returns 200 with product details', () =>
+      request(app.getHttpServer())
+        .get('/products/gtin/00614141000418')
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.id).toBe('prod-e2e');
+          expect(body.gtin).toBe('00614141000418');
+        }));
+
+    it('GET /products/gtin/:gtin returns 404 for unknown GTIN', () =>
+      request(app.getHttpServer())
+        .get('/products/gtin/00000000000000')
+        .expect(404));
+
+    it('GET /products/sku/:sku returns 200 with product details', () =>
+      request(app.getHttpServer())
+        .get('/products/sku/SKU-E2E-01')
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.id).toBe('prod-e2e');
+          expect(body.sku).toBe('SKU-E2E-01');
+        }));
+
+    it('GET /products/sku/:sku returns 404 for unknown SKU', () =>
+      request(app.getHttpServer())
+        .get('/products/sku/UNKNOWN-SKU')
+        .expect(404));
+  });
+
+  describe('Digital Cards (e2e)', () => {
+    beforeEach(async () => {
+      const brand = await prisma.brand.create({
+        data: { id: 'brand-card-e2e', name: 'Card Brand' },
+      });
+      await prisma.product.create({
+        data: {
+          id: 'prod-card-e2e',
+          gtin: '00614141000418',
+          sku: 'SKU-CARD-E2E',
+          name: 'Card Product',
+          brandId: brand.id,
+        },
+      });
+    });
+
+    it('POST /digital-cards creates a digital card and returns 201', () =>
+      request(app.getHttpServer())
+        .post('/digital-cards')
+        .send({ userId: USER.id, gtin: '00614141000418' })
+        .expect(201)
+        .expect(({ body }) => {
+          expect(body.id).toBeDefined();
+          expect(body.user.id).toBe(USER.id);
+          expect(body.product.gtin).toBe('00614141000418');
+        }));
+
+    it('POST /digital-cards returns 400 for invalid userId (non-UUID)', () =>
+      request(app.getHttpServer())
+        .post('/digital-cards')
+        .send({ userId: 'not-a-uuid', gtin: '00614141000418' })
+        .expect(400));
+
+    it('POST /digital-cards returns 404 for unknown GTIN', () =>
+      request(app.getHttpServer())
+        .post('/digital-cards')
+        .send({ userId: USER.id, gtin: '99999999999999' })
+        .expect(404));
+
+    it('GET /digital-cards/:id returns 400 for a non-UUID id', () =>
+      request(app.getHttpServer())
+        .get('/digital-cards/not-a-uuid')
+        .expect(400));
+
+    it('GET /digital-cards/:id returns 404 for an unknown card', () =>
+      request(app.getHttpServer())
+        .get('/digital-cards/00000000-0000-4000-8000-000000000099')
+        .expect(404));
+
+    it('GET /digital-cards/user/:userId returns 200 with cards array', () =>
+      request(app.getHttpServer())
+        .get(`/digital-cards/user/${USER.id}`)
+        .expect(200)
+        .expect(({ body }) => {
+          expect(Array.isArray(body)).toBe(true);
+        }));
+
+    it('GET /digital-cards/user/:userId returns 400 for non-UUID userId', () =>
+      request(app.getHttpServer())
+        .get('/digital-cards/user/not-a-uuid')
+        .expect(400));
+  });
 });
