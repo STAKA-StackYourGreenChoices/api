@@ -19,13 +19,49 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
 model User {
-  id           String        @id @default(uuid())
-  email        String        @unique
-  name         String
-  createdAt    DateTime      @default(now())
-  orders       Order[]
-  digitalCards DigitalCard[] 
+  id                     String         @id @default(uuid())
+  email                  String         @unique
+  name                   String
+  phone                  String?        @unique
+  password               String
+  role                   Role           @default(USER)
+  status                 Status         @default(ACTIVE)
+  profileBio             String?
+  profileAvatarUrl       String?
+  emailVerified          Boolean        @default(false)
+  emailVerificationToken String?        @unique
+  passwordResetToken     String?        @unique
+  passwordResetExpiry    DateTime?
+  digitalCards           DigitalCard[] 
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  deletedAt              DateTime?
+  orders                 Order[]
+  refreshTokens          RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
 }
 
 
