@@ -11,6 +11,8 @@ const prisma = new PrismaClient();
 
 const USER_ID = '00000000-0000-4000-8000-000000000001';
 const ORDER_ID = '00000000-0000-4000-8000-000000000101';
+const DEMO_PASSWORD_HASH =
+  '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
 
 async function main() {
   const user = await prisma.user.upsert({
@@ -20,6 +22,7 @@ async function main() {
       id: USER_ID,
       email: 'demo@example.com',
       name: 'Demo User',
+      password: DEMO_PASSWORD_HASH,
     },
   });
 
