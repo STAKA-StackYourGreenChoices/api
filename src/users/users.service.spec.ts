@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { Role, Status } from '../../generated/prisma';
+import { AuthEmails } from '../mail/auth-emails';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { SortOrder, UserQueryDto, UserSortField } from './dto/user-query.dto';
@@ -38,14 +39,19 @@ describe('UsersService (unit)', () => {
     refreshToken: {
       deleteMany: jest.fn(),
     },
-    $transaction: jest.fn((callback: (client: typeof prisma) => unknown) =>
+    $transaction: jest.fn((callback: (client: unknown) => unknown) =>
       callback(prisma),
     ),
   };
 
+  const authEmails = { sendVerification: jest.fn() };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new UsersService(prisma as PrismaService);
+    service = new UsersService(
+      prisma as PrismaService,
+      authEmails as unknown as AuthEmails,
+    );
   });
 
   describe('create', () => {
@@ -79,6 +85,16 @@ describe('UsersService (unit)', () => {
       );
 
       await expect(service.create(dto)).resolves.toEqual(safeUser);
+      const storedToken = (
+        prisma.user.create.mock.calls[0][0] as {
+          data: { emailVerificationToken: string };
+        }
+      ).data.emailVerificationToken;
+      expect(authEmails.sendVerification).toHaveBeenCalledWith(
+        safeUser.email,
+        safeUser.name,
+        storedToken,
+      );
       expect(prisma.user.create).toHaveBeenCalledWith(
         expect.objectContaining({
           select: expect.not.objectContaining({ password: true }),

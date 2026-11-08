@@ -5,7 +5,6 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUUID,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -27,11 +26,8 @@ export class CreateOrderItemDto {
   unitPrice!: number;
 }
 
+/** The order owner is always the signed-in user, never a field in the body. */
 export class CreateOrderDto {
-  @ApiProperty({ format: 'uuid' })
-  @IsUUID()
-  userId!: string;
-
   @ApiProperty({ type: [CreateOrderItemDto] })
   @IsArray()
   @ArrayNotEmpty()

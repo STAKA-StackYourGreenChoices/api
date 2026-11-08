@@ -283,6 +283,262 @@
         ]
       }
     },
+    "/brands": {
+      "get": {
+        "operationId": "BrandsController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BrandSummaryDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "brands"
+        ]
+      },
+      "post": {
+        "operationId": "BrandsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBrandDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSummaryDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Brand name already exists"
+          }
+        },
+        "tags": [
+          "brands"
+        ]
+      }
+    },
+    "/brands/{id}": {
+      "get": {
+        "operationId": "BrandsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSummaryDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "brands"
+        ]
+      },
+      "patch": {
+        "operationId": "BrandsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBrandDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSummaryDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": "Brand name already exists"
+          }
+        },
+        "tags": [
+          "brands"
+        ]
+      },
+      "delete": {
+        "operationId": "BrandsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": "Brand still has products"
+          }
+        },
+        "tags": [
+          "brands"
+        ]
+      }
+    },
+    "/products": {
+      "get": {
+        "operationId": "ProductsController_findAll",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Matches name, SKU, GTIN or brand name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brandId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductPageDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Products"
+        ]
+      },
+      "post": {
+        "operationId": "ProductsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid GTIN or unknown brand"
+          },
+          "409": {
+            "description": "GTIN or SKU already in use"
+          }
+        },
+        "tags": [
+          "Products"
+        ]
+      }
+    },
     "/products/gtin/{gtin}": {
       "get": {
         "operationId": "ProductsController_findByGtin",
@@ -306,6 +562,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Not a valid GTIN"
           },
           "404": {
             "description": "No product found for this GTIN"
@@ -349,6 +608,177 @@
         ]
       }
     },
+    "/products/import/template": {
+      "get": {
+        "operationId": "ProductsController_importTemplate",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "CSV header plus one example row"
+          }
+        },
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/products/import": {
+      "post": {
+        "operationId": "ProductsController_importCsv",
+        "parameters": [
+          {
+            "name": "dryRun",
+            "required": false,
+            "in": "query",
+            "description": "Validate and report without saving",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportReportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing, oversized or unreadable CSV"
+          }
+        },
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/products/{id}": {
+      "get": {
+        "operationId": "ProductsController_findById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Products"
+        ]
+      },
+      "patch": {
+        "operationId": "ProductsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": "GTIN or SKU already in use"
+          }
+        },
+        "tags": [
+          "Products"
+        ]
+      },
+      "delete": {
+        "operationId": "ProductsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": "Users hold cards for this product"
+          }
+        },
+        "tags": [
+          "Products"
+        ]
+      }
+    },
     "/digital-cards": {
       "post": {
         "operationId": "DigitalCardsController_create",
@@ -364,8 +794,8 @@
           }
         },
         "responses": {
-          "201": {
-            "description": "",
+          "200": {
+            "description": "You already have a card for this product; it is returned",
             "content": {
               "application/json": {
                 "schema": {
@@ -374,8 +804,45 @@
               }
             }
           },
+          "201": {
+            "description": "Card created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DigitalCardDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a valid GTIN"
+          },
           "404": {
-            "description": "Unknown GTIN or user not found"
+            "description": "No product for this GTIN"
+          }
+        },
+        "tags": [
+          "digital-cards"
+        ]
+      }
+    },
+    "/digital-cards/mine": {
+      "get": {
+        "operationId": "DigitalCardsController_findMine",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DigitalCardDto"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -446,6 +913,866 @@
         },
         "tags": [
           "digital-cards"
+        ]
+      }
+    },
+    "/digital-cards/{cardId}/ownership": {
+      "get": {
+        "operationId": "CardOwnershipController_status",
+        "parameters": [
+          {
+            "name": "cardId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnershipDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ownership"
+        ]
+      }
+    },
+    "/digital-cards/{cardId}/ownership/order-match": {
+      "post": {
+        "operationId": "CardOwnershipController_matchOrder",
+        "parameters": [
+          {
+            "name": "cardId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verified by a paid order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnershipDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No paid order includes this product"
+          }
+        },
+        "tags": [
+          "ownership"
+        ]
+      }
+    },
+    "/digital-cards/{cardId}/ownership/receipt": {
+      "post": {
+        "operationId": "CardOwnershipController_uploadReceipt",
+        "parameters": [
+          {
+            "name": "cardId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt waiting for review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnershipDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "All 5 receipt uploads are used"
+          },
+          "409": {
+            "description": "Already verified, or a receipt is under review"
+          }
+        },
+        "tags": [
+          "ownership"
+        ]
+      }
+    },
+    "/claims": {
+      "get": {
+        "operationId": "ClaimsController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "PENDING",
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "APPROVED",
+                "REJECTED"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimPageDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "ownership"
+        ]
+      }
+    },
+    "/claims/{id}": {
+      "get": {
+        "operationId": "ClaimsController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ownership"
+        ]
+      }
+    },
+    "/claims/{id}/receipt": {
+      "get": {
+        "operationId": "ClaimsController_receipt",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The receipt image or PDF"
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ownership"
+        ]
+      }
+    },
+    "/claims/{id}/approve": {
+      "post": {
+        "operationId": "ClaimsController_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Already reviewed"
+          }
+        },
+        "tags": [
+          "ownership"
+        ]
+      }
+    },
+    "/claims/{id}/reject": {
+      "post": {
+        "operationId": "ClaimsController_reject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectClaimDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Already reviewed"
+          }
+        },
+        "tags": [
+          "ownership"
+        ]
+      }
+    },
+    "/digital-cards/{cardId}/share": {
+      "post": {
+        "operationId": "CardShareController_share",
+        "parameters": [
+          {
+            "name": "cardId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareLinkDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": "Ownership is not verified yet"
+          }
+        },
+        "tags": [
+          "sharing"
+        ]
+      },
+      "delete": {
+        "operationId": "CardShareController_revoke",
+        "parameters": [
+          {
+            "name": "cardId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/public/tags/{slug}": {
+      "get": {
+        "operationId": "PublicTagsController_findOne",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicTagDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not shared, or sharing was turned off"
+          }
+        },
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/users": {
+      "get": {
+        "operationId": "UsersController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "alex",
+              "type": "string"
+            }
+          },
+          {
+            "name": "role",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "USER",
+                "ADMIN"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "INACTIVE",
+                "BLOCKED"
+              ]
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "createdAt",
+              "type": "string",
+              "enum": [
+                "createdAt",
+                "updatedAt",
+                "email",
+                "name",
+                "role",
+                "status"
+              ]
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "operationId": "UsersController_findById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "users"
+        ]
+      },
+      "patch": {
+        "operationId": "UsersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "users"
+        ]
+      },
+      "delete": {
+        "operationId": "UsersController_softDelete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User authenticated successfully"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Access token refreshed successfully"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Refresh token invalidated successfully"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/change-password": {
+      "post": {
+        "operationId": "AuthController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed successfully"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "operationId": "AuthController_forgotPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Emails a reset link if the account exists. The response is identical either way."
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "operationId": "AuthController_resetPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset successfully"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/verify-email": {
+      "post": {
+        "operationId": "AuthController_verifyEmail",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verified successfully"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/resend-verification": {
+      "post": {
+        "operationId": "AuthController_resendVerification",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Sends a new email verification link"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "auth"
         ]
       }
     }
@@ -562,10 +1889,6 @@
       "CreateOrderDto": {
         "type": "object",
         "properties": {
-          "userId": {
-            "type": "string",
-            "format": "uuid"
-          },
           "items": {
             "type": "array",
             "items": {
@@ -579,9 +1902,79 @@
           }
         },
         "required": [
-          "userId",
           "items"
         ]
+      },
+      "BrandSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string"
+          },
+          "productCount": {
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "productCount",
+          "createdAt"
+        ]
+      },
+      "CreateBrandDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "GreenCo",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "logoUrl": {
+            "type": "string",
+            "example": "https://example.com/logo.png"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateBrandDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "GreenCo",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "logoUrl": {
+            "type": "string",
+            "example": "https://example.com/logo.png"
+          }
+        }
       },
       "BrandDto": {
         "type": "object",
@@ -590,6 +1983,9 @@
             "type": "string"
           },
           "name": {
+            "type": "string"
+          },
+          "description": {
             "type": "string"
           },
           "logoUrl": {
@@ -605,17 +2001,25 @@
         "type": "object",
         "properties": {
           "carbonScoreGrams": {
-            "type": "number"
+            "type": "number",
+            "description": "Estimated carbon footprint in grams of CO2e"
           },
           "recyclabilityPercent": {
-            "type": "number"
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
           },
           "verified": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "True when a third party has verified the claims; false means the figures are stated by the brand"
           },
           "verifiedAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "certifierName": {
+            "type": "string",
+            "example": "Global Recycled Standard"
           }
         },
         "required": [
@@ -631,12 +2035,16 @@
             "type": "string"
           },
           "gtin": {
-            "type": "string"
+            "type": "string",
+            "description": "Always the 14-digit GTIN form"
           },
           "sku": {
             "type": "string"
           },
           "name": {
+            "type": "string"
+          },
+          "description": {
             "type": "string"
           },
           "imageUrl": {
@@ -647,6 +2055,14 @@
           },
           "sustainabilityInfo": {
             "$ref": "#/components/schemas/SustainabilityInfoDto"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
           }
         },
         "required": [
@@ -654,28 +2070,342 @@
           "gtin",
           "sku",
           "name",
-          "brand"
+          "brand",
+          "createdAt",
+          "updatedAt"
         ]
+      },
+      "ProductPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductDto"
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "limit"
+        ]
+      },
+      "ImportRowErrorDto": {
+        "type": "object",
+        "properties": {
+          "row": {
+            "type": "number",
+            "description": "Line number in the file (the header is line 1)"
+          },
+          "gtin": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "row",
+          "messages"
+        ]
+      },
+      "ImportReportDto": {
+        "type": "object",
+        "properties": {
+          "dryRun": {
+            "type": "boolean",
+            "description": "True when nothing was saved (preview only)"
+          },
+          "totalRows": {
+            "type": "number"
+          },
+          "created": {
+            "type": "number"
+          },
+          "updated": {
+            "type": "number"
+          },
+          "failed": {
+            "type": "number"
+          },
+          "brandsCreated": {
+            "description": "Brands that did not exist and were (or would be) created",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportRowErrorDto"
+            }
+          }
+        },
+        "required": [
+          "dryRun",
+          "totalRows",
+          "created",
+          "updated",
+          "failed",
+          "brandsCreated",
+          "errors"
+        ]
+      },
+      "SustainabilityInput": {
+        "type": "object",
+        "properties": {
+          "carbonScoreGrams": {
+            "type": "number",
+            "example": 120,
+            "description": "Grams of CO2e",
+            "minimum": 0
+          },
+          "recyclabilityPercent": {
+            "type": "number",
+            "example": 95,
+            "minimum": 0,
+            "maximum": 100
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "True only when a third party has verified the figures"
+          },
+          "verifiedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Defaults to now when verified is true; cleared when false"
+          },
+          "certifierName": {
+            "type": "string",
+            "example": "Global Recycled Standard",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "carbonScoreGrams",
+          "recyclabilityPercent",
+          "verified"
+        ]
+      },
+      "CreateProductDto": {
+        "type": "object",
+        "properties": {
+          "gtin": {
+            "type": "string",
+            "example": "0614141000418",
+            "description": "8, 12, 13 or 14 digits; stored as 14 digits"
+          },
+          "sku": {
+            "type": "string",
+            "example": "SKU-ECO-01",
+            "maxLength": 64
+          },
+          "name": {
+            "type": "string",
+            "example": "Organic Cotton Tee",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "imageUrl": {
+            "type": "string",
+            "example": "https://example.com/tee.jpg"
+          },
+          "brandId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sustainabilityInfo": {
+            "$ref": "#/components/schemas/SustainabilityInput"
+          }
+        },
+        "required": [
+          "gtin",
+          "sku",
+          "name",
+          "brandId"
+        ]
+      },
+      "UpdateProductDto": {
+        "type": "object",
+        "properties": {
+          "gtin": {
+            "type": "string",
+            "example": "0614141000418",
+            "description": "8, 12, 13 or 14 digits; stored as 14 digits"
+          },
+          "sku": {
+            "type": "string",
+            "example": "SKU-ECO-01",
+            "maxLength": 64
+          },
+          "name": {
+            "type": "string",
+            "example": "Organic Cotton Tee",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "imageUrl": {
+            "type": "string",
+            "example": "https://example.com/tee.jpg"
+          },
+          "brandId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sustainabilityInfo": {
+            "$ref": "#/components/schemas/SustainabilityInput"
+          }
+        }
       },
       "CreateDigitalCardDto": {
         "type": "object",
         "properties": {
-          "userId": {
-            "type": "string",
-            "format": "uuid"
-          },
           "gtin": {
             "type": "string",
-            "example": "0000614166626",
-            "description": "GTIN from scanned barcode"
+            "example": "0614141000418",
+            "description": "GTIN from the scanned barcode: 8, 12, 13 or 14 digits with a valid check digit"
           }
         },
         "required": [
-          "userId",
           "gtin"
         ]
       },
       "CardUserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "OwnershipDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "UNVERIFIED",
+              "PENDING",
+              "REJECTED",
+              "BLOCKED",
+              "VERIFIED"
+            ]
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "ORDER_MATCH",
+              "RECEIPT"
+            ],
+            "description": "How it was verified"
+          },
+          "verifiedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "pendingSince": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "lastRejectionReason": {
+            "type": "string"
+          },
+          "receiptAttemptsUsed": {
+            "type": "number"
+          },
+          "receiptAttemptsLeft": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "status",
+          "receiptAttemptsUsed",
+          "receiptAttemptsLeft"
+        ]
+      },
+      "ShareLinkDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "example": "k3Jd9QwZp2Lm",
+            "description": "Public path: /t/{slug}"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "createdAt"
+        ]
+      },
+      "DigitalCardDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/CardUserDto"
+          },
+          "product": {
+            "$ref": "#/components/schemas/ProductDto"
+          },
+          "ownership": {
+            "$ref": "#/components/schemas/OwnershipDto"
+          },
+          "share": {
+            "description": "Present while the card is publicly shared",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ShareLinkDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "createdAt",
+          "user",
+          "product",
+          "ownership"
+        ]
+      },
+      "ClaimUserDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -694,51 +2424,13 @@
           "email"
         ]
       },
-      "CardBrandDto": {
+      "ClaimProductDto": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string"
           },
           "name": {
-            "type": "string"
-          },
-          "logoUrl": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name"
-        ]
-      },
-      "CardSustainabilityDto": {
-        "type": "object",
-        "properties": {
-          "carbonScoreGrams": {
-            "type": "number"
-          },
-          "recyclabilityPercent": {
-            "type": "number"
-          },
-          "verified": {
-            "type": "boolean"
-          },
-          "verifiedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "carbonScoreGrams",
-          "recyclabilityPercent",
-          "verified"
-        ]
-      },
-      "CardProductDto": {
-        "type": "object",
-        "properties": {
-          "id": {
             "type": "string"
           },
           "gtin": {
@@ -747,49 +2439,455 @@
           "sku": {
             "type": "string"
           },
-          "name": {
+          "brandName": {
             "type": "string"
           },
           "imageUrl": {
             "type": "string"
-          },
-          "brand": {
-            "$ref": "#/components/schemas/CardBrandDto"
-          },
-          "sustainabilityInfo": {
-            "$ref": "#/components/schemas/CardSustainabilityDto"
           }
         },
         "required": [
           "id",
+          "name",
           "gtin",
           "sku",
-          "name",
-          "brand"
+          "brandName"
         ]
       },
-      "DigitalCardDto": {
+      "ClaimDto": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string"
           },
+          "method": {
+            "type": "string",
+            "enum": [
+              "ORDER_MATCH",
+              "RECEIPT"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED"
+            ]
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
           },
+          "reviewedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "rejectionReason": {
+            "type": "string"
+          },
+          "reviewedByName": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "hasReceipt": {
+            "type": "boolean",
+            "description": "True when a receipt file can be fetched"
+          },
+          "receiptMimeType": {
+            "type": "string",
+            "example": "image/jpeg"
+          },
+          "receiptAttempt": {
+            "type": "number",
+            "description": "Receipt attempt number, 1 to 5"
+          },
           "user": {
-            "$ref": "#/components/schemas/CardUserDto"
+            "$ref": "#/components/schemas/ClaimUserDto"
           },
           "product": {
-            "$ref": "#/components/schemas/CardProductDto"
+            "$ref": "#/components/schemas/ClaimProductDto"
           }
         },
         "required": [
           "id",
+          "method",
+          "status",
           "createdAt",
+          "hasReceipt",
           "user",
           "product"
+        ]
+      },
+      "ClaimPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaimDto"
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "limit"
+        ]
+      },
+      "ClaimDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "ORDER_MATCH",
+              "RECEIPT"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED"
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "reviewedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "rejectionReason": {
+            "type": "string"
+          },
+          "reviewedByName": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "hasReceipt": {
+            "type": "boolean",
+            "description": "True when a receipt file can be fetched"
+          },
+          "receiptMimeType": {
+            "type": "string",
+            "example": "image/jpeg"
+          },
+          "receiptAttempt": {
+            "type": "number",
+            "description": "Receipt attempt number, 1 to 5"
+          },
+          "user": {
+            "$ref": "#/components/schemas/ClaimUserDto"
+          },
+          "product": {
+            "$ref": "#/components/schemas/ClaimProductDto"
+          },
+          "history": {
+            "description": "All of this shopper's claims for this product, oldest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaimDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "method",
+          "status",
+          "createdAt",
+          "hasReceipt",
+          "user",
+          "product",
+          "history"
+        ]
+      },
+      "RejectClaimDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "example": "The receipt does not show this product",
+            "description": "Shown to the shopper so they know what to fix"
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "PublicTagDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "product": {
+            "$ref": "#/components/schemas/ProductDto"
+          },
+          "ownerFirstName": {
+            "type": "string",
+            "example": "Demo"
+          },
+          "verifiedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "verifiedBy": {
+            "type": "string",
+            "enum": [
+              "ORDER_MATCH",
+              "RECEIPT"
+            ]
+          },
+          "sharedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "product",
+          "ownerFirstName",
+          "verifiedAt",
+          "sharedAt"
+        ]
+      },
+      "Object": {
+        "type": "object",
+        "properties": {}
+      },
+      "UserResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "example": "user@example.com"
+          },
+          "name": {
+            "type": "string",
+            "example": "Alex Morgan"
+          },
+          "phone": {
+            "type": "object",
+            "example": "+15551234567",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "USER",
+              "ADMIN"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE",
+              "BLOCKED"
+            ]
+          },
+          "profileBio": {
+            "type": "object",
+            "nullable": true
+          },
+          "profileAvatarUrl": {
+            "type": "object",
+            "nullable": true
+          },
+          "emailVerified": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name",
+          "role",
+          "status",
+          "emailVerified",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "updated@example.com"
+          },
+          "name": {
+            "type": "string",
+            "example": "Alex Morgan"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+15551234567"
+          },
+          "profileBio": {
+            "type": "string",
+            "example": "Updated profile bio."
+          },
+          "profileAvatarUrl": {
+            "type": "string",
+            "example": "https://example.com/new-avatar.png"
+          }
+        }
+      },
+      "RegisterDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "user@example.com"
+          },
+          "name": {
+            "type": "string",
+            "example": "Alex Morgan",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "phone": {
+            "type": "string",
+            "example": "+15551234567"
+          },
+          "password": {
+            "type": "string",
+            "example": "correct horse battery staple",
+            "minLength": 8
+          },
+          "profileBio": {
+            "type": "string",
+            "example": "Chooses low-impact household products."
+          },
+          "profileAvatarUrl": {
+            "type": "string",
+            "example": "https://example.com/avatar.png"
+          }
+        },
+        "required": [
+          "email",
+          "name",
+          "password"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "correct horse battery staple",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "RefreshTokenDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "ChangePasswordDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "minLength": 8
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ]
+      },
+      "ForgotPasswordDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "user@example.com"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "ResetPasswordDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "token",
+          "newPassword"
+        ]
+      },
+      "VerifyEmailDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
         ]
       }
     }

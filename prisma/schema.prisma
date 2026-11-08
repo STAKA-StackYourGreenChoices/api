@@ -19,6 +19,17 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum ClaimMethod {
+  ORDER_MATCH
+  RECEIPT
+}
+
+enum ClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum Role {
   USER
   ADMIN
@@ -31,25 +42,27 @@ enum Status {
 }
 
 model User {
-  id                     String         @id @default(uuid())
-  email                  String         @unique
+  id                     String           @id @default(uuid())
+  email                  String           @unique
   name                   String
-  phone                  String?        @unique
+  phone                  String?          @unique
   password               String
-  role                   Role           @default(USER)
-  status                 Status         @default(ACTIVE)
+  role                   Role             @default(USER)
+  status                 Status           @default(ACTIVE)
   profileBio             String?
   profileAvatarUrl       String?
-  emailVerified          Boolean        @default(false)
-  emailVerificationToken String?        @unique
-  passwordResetToken     String?        @unique
+  emailVerified          Boolean          @default(false)
+  emailVerificationToken String?          @unique
+  passwordResetToken     String?          @unique
   passwordResetExpiry    DateTime?
-  digitalCards           DigitalCard[] 
-  createdAt              DateTime       @default(now())
-  updatedAt              DateTime       @updatedAt
+  digitalCards           DigitalCard[]
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
   deletedAt              DateTime?
   orders                 Order[]
   refreshTokens          RefreshToken[]
+  ownershipClaims        OwnershipClaim[] @relation("ClaimOwner")
+  reviewedClaims         OwnershipClaim[] @relation("ClaimReviewer")
 }
 
 model RefreshToken {
@@ -64,17 +77,17 @@ model RefreshToken {
   @@index([token])
 }
 
-
 model Order {
-  id        String      @id @default(uuid())
-  userId    String
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String           @id @default(uuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   // Money is stored in minor units (cents) as integers — never floats.
-  subtotal  Int
-  discount  Int         @default(0)
-  status    OrderStatus @default(PENDING)
-  createdAt DateTime    @default(now())
-  items     OrderItem[]
+  subtotal        Int
+  discount        Int              @default(0)
+  status          OrderStatus      @default(PENDING)
+  createdAt       DateTime         @default(now())
+  items           OrderItem[]
+  ownershipClaims OwnershipClaim[]
 
   @@index([userId])
 }
@@ -92,7 +105,7 @@ model OrderItem {
 
 model Brand {
   id          String    @id @default(uuid())
-  name        String
+  name        String    @unique
   logoUrl     String?
   description String?
   createdAt   DateTime  @default(now())
@@ -104,12 +117,16 @@ model Product {
   gtin               String              @unique
   sku                String              @unique
   name               String
+  description        String?
   imageUrl           String?
   brandId            String
   brand              Brand               @relation(fields: [brandId], references: [id])
   sustainabilityInfo SustainabilityInfo?
   digitalCards       DigitalCard[]
+  ownershipClaims    OwnershipClaim[]
   createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @default(now()) @updatedAt
+
   @@index([gtin])
   @@index([sku])
 }
@@ -122,20 +139,60 @@ model SustainabilityInfo {
   recyclabilityPercent Int
   verified             Boolean   @default(false)
   verifiedAt           DateTime?
+  // Who verified the claims (e.g. a certification body). Only meaningful when verified is true.
+  certifierName        String?
   updatedAt            DateTime  @updatedAt
 }
 
 model DigitalCard {
-  id        String   @id @default(uuid())
-  productId String
-  product   Product  @relation(fields: [productId], references: [id])
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
+  id                  String     @id @default(uuid())
+  productId           String
+  product             Product    @relation(fields: [productId], references: [id])
+  userId              String
+  user                User       @relation(fields: [userId], references: [id])
+  // Set when an ownership claim for this user and product is approved.
+  ownershipVerifiedAt DateTime?
+  shareLink           ShareLink?
+  createdAt           DateTime   @default(now())
 
+  // One card per user per product: scanning the same product again returns the existing card.
+  @@unique([userId, productId])
   @@index([productId])
   @@index([userId])
 }
 
+/// Proof that a user bought a product. Approving one verifies their card.
+model OwnershipClaim {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation("ClaimOwner", fields: [userId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  method          ClaimMethod
+  status          ClaimStatus @default(PENDING)
+  /// ORDER_MATCH: the paid order that contained the product.
+  orderId         String?
+  order           Order?      @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  /// RECEIPT: path of the uploaded file, relative to UPLOADS_DIR. Never public.
+  receiptPath     String?
+  receiptMimeType String?
+  rejectionReason String?
+  reviewedById    String?
+  reviewedBy      User?       @relation("ClaimReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt      DateTime?
+  createdAt       DateTime    @default(now())
 
+  @@index([userId, productId])
+  @@index([status, createdAt])
+}
 
+/// A public link to a verified card. One per card; revoking keeps the row so
+/// the old slug stays dead, and sharing again issues a new slug.
+model ShareLink {
+  id        String      @id @default(uuid())
+  slug      String      @unique
+  cardId    String      @unique
+  card      DigitalCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+  revokedAt DateTime?
+}

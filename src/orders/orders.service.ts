@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { isAdmin, RequestUser } from '../auth/request-user';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 
@@ -23,7 +24,7 @@ export class OrdersService {
     return OrdersService.computeTotal(order.subtotal, order.discount);
   }
 
-  async create(dto: CreateOrderDto) {
+  async create(userId: string, dto: CreateOrderDto) {
     const subtotal = dto.items.reduce(
       (sum, item) => sum + item.quantity * item.unitPrice,
       0,
@@ -33,7 +34,7 @@ export class OrdersService {
     // failure halfway through can never leave a headless order row behind.
     const order = await this.prisma.order.create({
       data: {
-        userId: dto.userId,
+        userId,
         subtotal,
         discount: dto.discount ?? 0,
         items: {
@@ -50,17 +51,21 @@ export class OrdersService {
     return this.present(order);
   }
 
-  async findOne(id: string) {
+  /** Owners and admins can read an order; anyone else gets a 404 so ids can't be probed. */
+  async findOne(id: string, requester: RequestUser) {
     const order = await this.prisma.order.findUnique({
       where: { id },
       include: { items: true },
     });
-    if (!order) throw new NotFoundException(`Order ${id} not found`);
+    if (!order || (order.userId !== requester.id && !isAdmin(requester)))
+      throw new NotFoundException(`Order ${id} not found`);
     return this.present(order);
   }
 
-  async findAll() {
+  /** Admins see every order; everyone else sees their own. */
+  async findAll(requester: RequestUser) {
     const orders = await this.prisma.order.findMany({
+      where: isAdmin(requester) ? {} : { userId: requester.id },
       include: { items: true },
       orderBy: { createdAt: 'desc' },
     });

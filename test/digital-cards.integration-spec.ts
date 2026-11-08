@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { Role } from '../generated/prisma';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { DigitalCardsService } from '../src/digital-cards/digital-cards.service';
@@ -9,6 +10,7 @@ const USER = {
   id: '00000000-0000-4000-8000-0000000000cc',
   email: 'carduser@example.com',
   name: 'Card User',
+  password: 'not-a-real-hash',
 };
 
 describe('DigitalCards (integration, real postgres)', () => {
@@ -65,44 +67,47 @@ describe('DigitalCards (integration, real postgres)', () => {
     await prisma.user.create({ data: USER });
   });
 
+  const owner = { id: USER.id, role: Role.USER };
+
   describe('create', () => {
-    it('creates and persists a digital card for a valid user and GTIN', async () => {
+    it('creates and persists a card from a 13-digit scan', async () => {
       await seedProduct();
 
-      const created = await digitalCards.create({
-        userId: USER.id,
-        gtin: '00614141000418',
-      });
+      const { card, created } = await digitalCards.create(
+        USER.id,
+        '0614141000418',
+      );
 
-      expect(created.id).toBeDefined();
-      expect(created.user.id).toBe(USER.id);
-      expect(created.product.gtin).toBe('00614141000418');
-      expect(created.product.name).toBe('Reusable Bag');
+      expect(created).toBe(true);
+      expect(card.user).toEqual({ id: USER.id, name: USER.name });
+      expect(card.product.gtin).toBe('00614141000418');
+      expect(card.product.name).toBe('Reusable Bag');
 
       const persisted = await prisma.digitalCard.findUnique({
-        where: { id: created.id },
+        where: { id: card.id },
       });
-      expect(persisted).not.toBeNull();
       expect(persisted?.userId).toBe(USER.id);
     });
 
-    it('throws NotFoundException for an unknown GTIN', async () => {
+    it('returns the existing card on a repeat scan, enforced by the unique index', async () => {
+      await seedProduct();
+      const first = await digitalCards.create(USER.id, '0614141000418');
+      const second = await digitalCards.create(USER.id, '00614141000418');
+
+      expect(second).toMatchObject({
+        created: false,
+        card: { id: first.card.id },
+      });
       await expect(
-        digitalCards.create({
-          userId: USER.id,
-          gtin: '99999999999999',
+        prisma.digitalCard.create({
+          data: { userId: USER.id, productId: 'prod-card-1' },
         }),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      ).rejects.toMatchObject({ code: 'P2002' });
     });
 
-    it('throws NotFoundException for an unknown user', async () => {
-      await seedProduct();
-
+    it('throws NotFoundException for a valid but unknown GTIN', async () => {
       await expect(
-        digitalCards.create({
-          userId: '00000000-0000-4000-8000-000000000099',
-          gtin: '00614141000418',
-        }),
+        digitalCards.create(USER.id, '4006381333931'),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
@@ -110,39 +115,39 @@ describe('DigitalCards (integration, real postgres)', () => {
   describe('findByUser', () => {
     it('returns all digital cards for a given user', async () => {
       await seedProduct();
-      const card = await digitalCards.create({
-        userId: USER.id,
-        gtin: '00614141000418',
-      });
+      const { card } = await digitalCards.create(USER.id, '00614141000418');
 
       const results = await digitalCards.findByUser(USER.id);
       expect(results).toHaveLength(1);
       expect(results[0].id).toBe(card.id);
-      expect(results[0].product.name).toBe('Reusable Bag');
     });
 
     it('returns an empty array when the user has no cards', async () => {
-      const results = await digitalCards.findByUser(USER.id);
-      expect(results).toEqual([]);
+      await expect(digitalCards.findByUser(USER.id)).resolves.toEqual([]);
     });
   });
 
   describe('findOne', () => {
-    it('returns the digital card by ID', async () => {
+    it('returns the card to its owner and hides it from others', async () => {
       await seedProduct();
-      const created = await digitalCards.create({
-        userId: USER.id,
-        gtin: '00614141000418',
-      });
+      const { card } = await digitalCards.create(USER.id, '00614141000418');
 
-      const found = await digitalCards.findOne(created.id);
-      expect(found.id).toBe(created.id);
-      expect(found.product.gtin).toBe('00614141000418');
+      await expect(digitalCards.findOne(card.id, owner)).resolves.toMatchObject(
+        {
+          id: card.id,
+        },
+      );
+      await expect(
+        digitalCards.findOne(card.id, {
+          id: '00000000-0000-4000-8000-000000000099',
+          role: Role.USER,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('throws NotFoundException when card does not exist', async () => {
       await expect(
-        digitalCards.findOne('00000000-0000-4000-8000-000000000099'),
+        digitalCards.findOne('00000000-0000-4000-8000-000000000099', owner),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });

@@ -65,13 +65,15 @@ describe('OrdersService (unit)', () => {
         items: [],
       }));
 
-      const result = await service.create({
-        userId: '00000000-0000-4000-8000-000000000001',
-        items: [
-          { sku: 'A', quantity: 2, unitPrice: 1500 },
-          { sku: 'B', quantity: 3, unitPrice: 100 },
-        ],
-      });
+      const result = await service.create(
+        '00000000-0000-4000-8000-000000000001',
+        {
+          items: [
+            { sku: 'A', quantity: 2, unitPrice: 1500 },
+            { sku: 'B', quantity: 3, unitPrice: 100 },
+          ],
+        },
+      );
 
       expect(result.subtotal).toBe(3300);
       expect(result.total).toBe(3300);
@@ -87,8 +89,7 @@ describe('OrdersService (unit)', () => {
         items: [],
       });
 
-      await service.create({
-        userId: '00000000-0000-4000-8000-000000000001',
+      await service.create('00000000-0000-4000-8000-000000000001', {
         items: [{ sku: 'A', quantity: 1, unitPrice: 100 }],
       });
 

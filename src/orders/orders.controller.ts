@@ -12,6 +12,8 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { RequestUser } from '../auth/request-user';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderDto } from './dto/order.dto';
@@ -23,20 +25,23 @@ export class OrdersController {
 
   @Get()
   @ApiOkResponse({ type: [OrderDto] })
-  findAll() {
-    return this.orders.findAll();
+  findAll(@CurrentUser() user: RequestUser) {
+    return this.orders.findAll(user);
   }
 
   @Get(':id')
   @ApiOkResponse({ type: OrderDto })
   @ApiNotFoundResponse()
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.orders.findOne(id);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.orders.findOne(id, user);
   }
 
   @Post()
   @ApiCreatedResponse({ type: OrderDto })
-  create(@Body() dto: CreateOrderDto) {
-    return this.orders.create(dto);
+  create(@CurrentUser() user: RequestUser, @Body() dto: CreateOrderDto) {
+    return this.orders.create(user.id, dto);
   }
 }

@@ -41,8 +41,7 @@ describe('Orders (integration, real postgres)', () => {
   });
 
   it('persists an order and its items atomically', async () => {
-    const created = await orders.create({
-      userId: USER.id,
+    const created = await orders.create(USER.id, {
       items: [
         { sku: 'SKU-A', quantity: 2, unitPrice: 1500 },
         { sku: 'SKU-B', quantity: 1, unitPrice: 500 },
@@ -65,8 +64,8 @@ describe('Orders (integration, real postgres)', () => {
     const before = await prisma.orderItem.count();
 
     await expect(
-      orders.create({
-        userId: '00000000-0000-4000-8000-00000000ffff', // no such user
+      orders.create('00000000-0000-4000-8000-00000000ffff', {
+        // no such user
         items: [{ sku: 'SKU-A', quantity: 1, unitPrice: 100 }],
       }),
     ).rejects.toBeDefined();
@@ -76,8 +75,7 @@ describe('Orders (integration, real postgres)', () => {
   });
 
   it('cascades item deletion when an order is removed', async () => {
-    const created = await orders.create({
-      userId: USER.id,
+    const created = await orders.create(USER.id, {
       items: [{ sku: 'SKU-A', quantity: 1, unitPrice: 100 }],
     });
 
@@ -87,8 +85,7 @@ describe('Orders (integration, real postgres)', () => {
   });
 
   it('reads the total back through a real query, clamped at zero', async () => {
-    const created = await orders.create({
-      userId: USER.id,
+    const created = await orders.create(USER.id, {
       items: [{ sku: 'SKU-A', quantity: 1, unitPrice: 1000 }],
       discount: 5000,
     });

@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { Role, Status } from '../../generated/prisma';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuthEmails } from '../mail/auth-emails';
 import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -37,7 +38,7 @@ describe('AuthService (unit)', () => {
       create: jest.fn(),
       deleteMany: jest.fn(),
     },
-    $transaction: jest.fn((callback: (client: typeof prisma) => unknown) =>
+    $transaction: jest.fn((callback: (client: unknown) => unknown) =>
       callback(prisma),
     ),
   };
@@ -59,6 +60,10 @@ describe('AuthService (unit)', () => {
   const jwt = {
     signAsync: jest.fn().mockResolvedValue('access-token'),
   };
+  const authEmails = {
+    sendPasswordReset: jest.fn(),
+    sendVerification: jest.fn(),
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -67,6 +72,7 @@ describe('AuthService (unit)', () => {
       jwt as unknown as JwtService,
       prisma as PrismaService,
       users as unknown as UsersService,
+      authEmails as unknown as AuthEmails,
     );
   });
 
@@ -251,17 +257,21 @@ describe('AuthService (unit)', () => {
       });
     });
 
-    it('generates and stores a password reset token', async () => {
-      prisma.user.findFirst.mockResolvedValue({ id: user.id });
+    it('stores a reset token and emails it without returning it', async () => {
+      prisma.user.findFirst.mockResolvedValue({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      });
       prisma.user.update.mockResolvedValue(user);
 
       const result = await service.forgotPassword(user.email);
 
       expect(result).toEqual({
-        message: 'Password reset token generated',
-        resetToken: expect.any(String),
-        expiresAt: expect.any(Date),
+        message:
+          'If an account exists for that email, we have sent a password reset link',
       });
+      expect(JSON.stringify(result)).not.toMatch(/[0-9a-f]{64}/);
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: user.id },
@@ -271,6 +281,30 @@ describe('AuthService (unit)', () => {
           },
         }),
       );
+      const storedToken = (
+        prisma.user.update.mock.calls[0][0] as {
+          data: { passwordResetToken: string };
+        }
+      ).data.passwordResetToken;
+      expect(authEmails.sendPasswordReset).toHaveBeenCalledWith(
+        user.email,
+        user.name,
+        storedToken,
+        expect.any(Date),
+      );
+    });
+
+    it('answers an unknown email exactly like a known one and sends nothing', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.forgotPassword('nobody@example.com'),
+      ).resolves.toEqual({
+        message:
+          'If an account exists for that email, we have sent a password reset link',
+      });
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(authEmails.sendPasswordReset).not.toHaveBeenCalled();
     });
 
     it('resets the password, clears reset fields, and revokes tokens', async () => {

@@ -7,6 +7,7 @@ import {
 import { randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcryptjs';
 import { Prisma, Role, Status } from '../../generated/prisma';
+import { AuthEmails } from '../mail/auth-emails';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
@@ -38,7 +39,10 @@ export class UsersService {
     updatedAt: true,
   } satisfies Prisma.UserSelect;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly authEmails: AuthEmails,
+  ) {}
 
   async create(dto: CreateUserDto) {
     const duplicateEmail = await this.prisma.user.findUnique({
@@ -64,8 +68,9 @@ export class UsersService {
       UsersService.PASSWORD_ROUNDS,
     );
 
-    try {
-      return await this.prisma.user.create({
+    const emailVerificationToken = randomBytes(32).toString('hex');
+    const user = await this.prisma.user
+      .create({
         data: {
           email: dto.email,
           name: dto.name,
@@ -75,19 +80,26 @@ export class UsersService {
           status: Status.ACTIVE,
           profileBio: dto.profileBio,
           profileAvatarUrl: dto.profileAvatarUrl,
-          emailVerificationToken: randomBytes(32).toString('hex'),
+          emailVerificationToken,
         },
         select: UsersService.safeUserSelect,
+      })
+      .catch((error: unknown) => {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          throw new ConflictException('Email or phone is already in use');
+        }
+        throw error;
       });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException('Email or phone is already in use');
-      }
-      throw error;
-    }
+
+    await this.authEmails.sendVerification(
+      user.email,
+      user.name,
+      emailVerificationToken,
+    );
+    return user;
   }
 
   async findAll(query: UserQueryDto = new UserQueryDto()) {

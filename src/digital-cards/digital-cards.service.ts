@@ -1,112 +1,151 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '../../generated/prisma';
+import { isAdmin, RequestUser } from '../auth/request-user';
+import { ClaimFacts, summarizeOwnership } from '../ownership/ownership-summary';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateDigitalCardDto } from './dto/create-digital-card.dto';
+import { normalizeGtin } from '../products/gtin';
+import { presentProduct, productInclude } from '../products/product.presenter';
+import { DigitalCardDto } from './dto/digital-card.dto';
+
+const claimFactsSelect = {
+  productId: true,
+  method: true,
+  status: true,
+  rejectionReason: true,
+  reviewedAt: true,
+  createdAt: true,
+} satisfies Prisma.OwnershipClaimSelect;
+
+const cardInclude = {
+  product: { include: productInclude },
+  user: { select: { id: true, name: true } },
+  shareLink: { select: { slug: true, createdAt: true, revokedAt: true } },
+} satisfies Prisma.DigitalCardInclude;
+
+type CardWithRelations = Prisma.DigitalCardGetPayload<{
+  include: typeof cardInclude;
+}>;
 
 @Injectable()
 export class DigitalCardsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateDigitalCardDto) {
+  /**
+   * Creates the signed-in user's card for a scanned product. Scanning the same
+   * product again returns the existing card (`created: false`) instead of a
+   * duplicate.
+   */
+  async create(
+    userId: string,
+    rawGtin: string,
+  ): Promise<{ card: DigitalCardDto; created: boolean }> {
+    const normalized = normalizeGtin(rawGtin);
+    if (!normalized.ok) throw new BadRequestException(normalized.reason);
+
     const product = await this.prisma.product.findUnique({
-      where: { gtin: dto.gtin },
-      include: { brand: true, sustainabilityInfo: true },
+      where: { gtin: normalized.gtin },
+      select: { id: true },
     });
     if (!product) {
-      throw new NotFoundException(`No product found for GTIN ${dto.gtin}`);
+      throw new NotFoundException(
+        `No product found for GTIN ${normalized.gtin}`,
+      );
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: dto.userId },
-    });
-    if (!user) {
-      throw new NotFoundException(`User ${dto.userId} not found`);
+    const existing = await this.findExisting(userId, product.id);
+    if (existing) {
+      return { card: await this.presentOne(existing), created: false };
     }
 
-    const card = await this.prisma.digitalCard.create({
-      data: { productId: product.id, userId: user.id },
-      include: {
-        product: { include: { brand: true, sustainabilityInfo: true } },
-        user: true,
-      },
-    });
-
-    return this.present(card);
+    try {
+      const card = await this.prisma.digitalCard.create({
+        data: { productId: product.id, userId },
+        include: cardInclude,
+      });
+      return { card: this.present(card, []), created: true };
+    } catch (error) {
+      // Two scans racing each other: the loser returns the winner's card.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const winner = await this.findExisting(userId, product.id);
+        if (winner) {
+          return { card: await this.presentOne(winner), created: false };
+        }
+      }
+      throw error;
+    }
   }
 
   async findByUser(userId: string) {
     const cards = await this.prisma.digitalCard.findMany({
       where: { userId },
-      include: {
-        product: { include: { brand: true, sustainabilityInfo: true } },
-        user: true,
-      },
+      include: cardInclude,
       orderBy: { createdAt: 'desc' },
     });
-    return cards.map((card) => this.present(card));
+    // All of the user's claims in one query, grouped per product.
+    const claims = await this.prisma.ownershipClaim.findMany({
+      where: { userId },
+      select: claimFactsSelect,
+    });
+    const byProduct = new Map<string, ClaimFacts[]>();
+    for (const claim of claims) {
+      byProduct.set(claim.productId, [
+        ...(byProduct.get(claim.productId) ?? []),
+        claim,
+      ]);
+    }
+    return cards.map((card) =>
+      this.present(card, byProduct.get(card.productId) ?? []),
+    );
   }
 
-  async findOne(id: string) {
+  /** Owners and admins can read a card; anyone else gets a 404, not a 403, so ids can't be probed. */
+  async findOne(id: string, requester: RequestUser) {
     const card = await this.prisma.digitalCard.findUnique({
       where: { id },
-      include: {
-        product: { include: { brand: true, sustainabilityInfo: true } },
-        user: true,
-      },
+      include: cardInclude,
     });
-    if (!card) throw new NotFoundException(`Digital card ${id} not found`);
-    return this.present(card);
+    if (!card || (card.userId !== requester.id && !isAdmin(requester))) {
+      throw new NotFoundException(`Digital card ${id} not found`);
+    }
+    return this.presentOne(card);
   }
 
-  private present(card: {
-    id: string;
-    createdAt: Date;
-    user: { id: string; name: string; email: string };
-    product: {
-      id: string;
-      gtin: string;
-      sku: string;
-      name: string;
-      imageUrl: string | null;
-      brand: { id: string; name: string; logoUrl: string | null };
-      sustainabilityInfo: {
-        carbonScoreGrams: number;
-        recyclabilityPercent: number;
-        verified: boolean;
-        verifiedAt: Date | null;
-      } | null;
-    };
-  }) {
+  private findExisting(userId: string, productId: string) {
+    return this.prisma.digitalCard.findUnique({
+      where: { userId_productId: { userId, productId } },
+      include: cardInclude,
+    });
+  }
+
+  private async presentOne(card: CardWithRelations): Promise<DigitalCardDto> {
+    const claims = await this.prisma.ownershipClaim.findMany({
+      where: { userId: card.userId, productId: card.productId },
+      select: claimFactsSelect,
+    });
+    return this.present(card, claims);
+  }
+
+  private present(
+    card: CardWithRelations,
+    claims: ClaimFacts[],
+  ): DigitalCardDto {
     return {
       id: card.id,
       createdAt: card.createdAt,
-      user: {
-        id: card.user.id,
-        name: card.user.name,
-        email: card.user.email,
-      },
-      product: {
-        id: card.product.id,
-        gtin: card.product.gtin,
-        sku: card.product.sku,
-        name: card.product.name,
-        imageUrl: card.product.imageUrl ?? undefined,
-        brand: {
-          id: card.product.brand.id,
-          name: card.product.brand.name,
-          logoUrl: card.product.brand.logoUrl ?? undefined,
-        },
-        sustainabilityInfo: card.product.sustainabilityInfo
-          ? {
-              carbonScoreGrams:
-                card.product.sustainabilityInfo.carbonScoreGrams,
-              recyclabilityPercent:
-                card.product.sustainabilityInfo.recyclabilityPercent,
-              verified: card.product.sustainabilityInfo.verified,
-              verifiedAt:
-                card.product.sustainabilityInfo.verifiedAt ?? undefined,
-            }
+      user: { id: card.user.id, name: card.user.name },
+      product: presentProduct(card.product),
+      ownership: summarizeOwnership(claims, card.ownershipVerifiedAt),
+      share:
+        card.shareLink && !card.shareLink.revokedAt
+          ? { slug: card.shareLink.slug, createdAt: card.shareLink.createdAt }
           : undefined,
-      },
     };
   }
 }

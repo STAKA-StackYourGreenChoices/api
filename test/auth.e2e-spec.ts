@@ -87,6 +87,28 @@ describe('Auth (e2e)', () => {
       .set('Authorization', 'Bearer invalid-token')
       .expect(401);
   });
+
+  it('answers forgot-password identically for known and unknown emails, never returning the token', async () => {
+    const email = `reset-${Date.now()}@example.com`;
+    await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email, name: 'Reset User', password })
+      .expect(201);
+
+    const known = await request(app.getHttpServer())
+      .post('/auth/forgot-password')
+      .send({ email })
+      .expect(200);
+    const unknown = await request(app.getHttpServer())
+      .post('/auth/forgot-password')
+      .send({ email: 'nobody@example.com' })
+      .expect(200);
+
+    expect(known.body).toEqual(unknown.body);
+    expect(known.body).not.toHaveProperty('resetToken');
+    const stored = await prisma.user.findUniqueOrThrow({ where: { email } });
+    expect(stored.passwordResetToken).toEqual(expect.any(String));
+  });
 });
 
 async function register(app: INestApplication<App>, email: string) {

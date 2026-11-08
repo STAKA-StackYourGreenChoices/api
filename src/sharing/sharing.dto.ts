@@ -1,0 +1,23 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ClaimMethod } from '../../generated/prisma';
+import { ProductDto } from '../products/dto/product.dto';
+
+export class ShareLinkDto {
+  @ApiProperty({
+    example: 'k3Jd9QwZp2Lm',
+    description: 'Public path: /t/{slug}',
+  })
+  slug!: string;
+
+  @ApiProperty() createdAt!: Date;
+}
+
+/** What anyone with the link can see. Only the owner's first name is public. */
+export class PublicTagDto {
+  @ApiProperty() slug!: string;
+  @ApiProperty({ type: () => ProductDto }) product!: ProductDto;
+  @ApiProperty({ example: 'Demo' }) ownerFirstName!: string;
+  @ApiProperty() verifiedAt!: Date;
+  @ApiPropertyOptional({ enum: ClaimMethod }) verifiedBy?: ClaimMethod;
+  @ApiProperty() sharedAt!: Date;
+}

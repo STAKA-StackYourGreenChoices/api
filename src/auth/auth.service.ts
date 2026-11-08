@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcryptjs';
 import { Prisma, Role, Status } from '../../generated/prisma';
+import { AuthEmails } from '../mail/auth-emails';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
@@ -46,6 +47,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
+    private readonly authEmails: AuthEmails,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -162,18 +164,22 @@ export class AuthService {
     return { success: true };
   }
 
+  /**
+   * Always answers with the same message, whether or not the email belongs to
+   * an account, so the endpoint can't be used to discover who has signed up.
+   * The token only ever leaves the server by email.
+   */
   async forgotPassword(email: string) {
+    const response = {
+      message:
+        'If an account exists for that email, we have sent a password reset link',
+    };
+
     const user = await this.prisma.user.findFirst({
       where: { email, deletedAt: null, status: Status.ACTIVE },
-      select: { id: true },
+      select: { id: true, email: true, name: true },
     });
-
-    if (!user) {
-      return {
-        message:
-          'If an account exists for that email, a reset token was generated',
-      };
-    }
+    if (!user) return response;
 
     const resetToken = randomBytes(32).toString('hex');
     const resetExpiry = new Date(Date.now() + this.getPasswordResetLifetime());
@@ -184,13 +190,14 @@ export class AuthService {
         passwordResetExpiry: resetExpiry,
       },
     });
-
-    // Temporary only: return the reset token until email delivery infrastructure exists.
-    return {
-      message: 'Password reset token generated',
+    await this.authEmails.sendPasswordReset(
+      user.email,
+      user.name,
       resetToken,
-      expiresAt: resetExpiry,
-    };
+      resetExpiry,
+    );
+
+    return response;
   }
 
   async resetPassword(dto: ResetPasswordDto) {
@@ -242,6 +249,24 @@ export class AuthService {
     }
 
     return { success: true };
+  }
+
+  /** Issues a fresh verification link for a signed-in user who lost the first one. */
+  async resendVerification(userId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { email: true, name: true, emailVerified: true },
+    });
+    if (!user) throw new UnauthorizedException();
+    if (user.emailVerified) return { message: 'Email is already verified' };
+
+    const token = randomBytes(32).toString('hex');
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { emailVerificationToken: token },
+    });
+    await this.authEmails.sendVerification(user.email, user.name, token);
+    return { message: 'Verification email sent' };
   }
 
   getCurrentUser(userId: string) {

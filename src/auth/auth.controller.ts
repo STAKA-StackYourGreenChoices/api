@@ -1,4 +1,11 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+} from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
@@ -56,9 +63,10 @@ export class AuthController {
 
   @Public()
   @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
     description:
-      'Generates a reset token. Temporary non-production behavior: the token is returned directly until email delivery exists.',
+      'Emails a reset link if the account exists. The response is identical either way.',
   })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.auth.forgotPassword(dto.email);
@@ -76,6 +84,13 @@ export class AuthController {
   @ApiOkResponse({ description: 'Email verified successfully' })
   verifyEmail(@Body() dto: VerifyEmailDto) {
     return this.auth.verifyEmail(dto);
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'Sends a new email verification link' })
+  resendVerification(@CurrentUser() currentUser: { id: string }) {
+    return this.auth.resendVerification(currentUser.id);
   }
 
   @Get('me')

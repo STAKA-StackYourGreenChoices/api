@@ -81,12 +81,12 @@ describe('API (e2e)', () => {
       .post('/orders')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({
-        userId: USER.id,
         items: [{ sku: 'SKU-A', quantity: 2, unitPrice: 1000 }],
         discount: 500,
       })
       .expect(201)
       .expect(({ body }) => {
+        expect(body.userId).toBe(USER.id);
         expect(body.subtotal).toBe(2000);
         expect(body.total).toBe(1500);
         expect(body.items).toHaveLength(1);
@@ -97,9 +97,18 @@ describe('API (e2e)', () => {
       .post('/orders')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({
-        userId: USER.id,
         items: [{ sku: 'SKU-A', quantity: 1, unitPrice: 1 }],
         sneaky: true,
+      })
+      .expect(400));
+
+  it('POST /orders refuses a userId in the body, so orders cannot be placed for someone else', () =>
+    request(app.getHttpServer())
+      .post('/orders')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        userId: '00000000-0000-4000-8000-0000000000cc',
+        items: [{ sku: 'SKU-A', quantity: 1, unitPrice: 1 }],
       })
       .expect(400));
 
@@ -107,7 +116,7 @@ describe('API (e2e)', () => {
     request(app.getHttpServer())
       .post('/orders')
       .set('Authorization', `Bearer ${accessToken}`)
-      .send({ userId: USER.id, items: [] })
+      .send({ items: [] })
       .expect(400));
 
   it('POST /orders rejects a negative discount', () =>
@@ -115,7 +124,6 @@ describe('API (e2e)', () => {
       .post('/orders')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({
-        userId: USER.id,
         items: [{ sku: 'SKU-A', quantity: 1, unitPrice: 100 }],
         discount: -1,
       })
@@ -149,23 +157,41 @@ describe('API (e2e)', () => {
       });
     });
 
-    it('GET /products/gtin/:gtin returns 200 with product details', () =>
+    it('GET /products/gtin/:gtin finds a 14-digit GTIN', () =>
       request(app.getHttpServer())
         .get('/products/gtin/00614141000418')
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(200)
         .expect(({ body }) => {
           expect(body.id).toBe('prod-e2e');
           expect(body.gtin).toBe('00614141000418');
         }));
 
-    it('GET /products/gtin/:gtin returns 404 for unknown GTIN', () =>
+    it('GET /products/gtin/:gtin finds the same product from a 13-digit EAN scan', () =>
       request(app.getHttpServer())
-        .get('/products/gtin/00000000000000')
+        .get('/products/gtin/0614141000418')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.id).toBe('prod-e2e');
+        }));
+
+    it('GET /products/gtin/:gtin returns 400 for a bad check digit', () =>
+      request(app.getHttpServer())
+        .get('/products/gtin/0614141000419')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(400));
+
+    it('GET /products/gtin/:gtin returns 404 for a valid but unknown GTIN', () =>
+      request(app.getHttpServer())
+        .get('/products/gtin/4006381333931')
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(404));
 
     it('GET /products/sku/:sku returns 200 with product details', () =>
       request(app.getHttpServer())
         .get('/products/sku/SKU-E2E-01')
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(200)
         .expect(({ body }) => {
           expect(body.id).toBe('prod-e2e');
@@ -175,7 +201,13 @@ describe('API (e2e)', () => {
     it('GET /products/sku/:sku returns 404 for unknown SKU', () =>
       request(app.getHttpServer())
         .get('/products/sku/UNKNOWN-SKU')
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(404));
+
+    it('requires a signed-in user', () =>
+      request(app.getHttpServer())
+        .get('/products/gtin/00614141000418')
+        .expect(401));
   });
 
   describe('Digital Cards (e2e)', () => {
@@ -194,50 +226,94 @@ describe('API (e2e)', () => {
       });
     });
 
-    it('POST /digital-cards creates a digital card and returns 201', () =>
+    const createCard = (token: string, gtin = '0614141000418') =>
       request(app.getHttpServer())
         .post('/digital-cards')
-        .send({ userId: USER.id, gtin: '00614141000418' })
+        .set('Authorization', `Bearer ${token}`)
+        .send({ gtin });
+
+    const registerOther = async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          email: 'other@example.com',
+          name: 'Other',
+          password: 'Password123!',
+        })
+        .expect(201);
+      return response.body as { accessToken: string; user: { id: string } };
+    };
+
+    it('POST /digital-cards creates a card for the signed-in user (201), without their email', () =>
+      createCard(accessToken)
         .expect(201)
         .expect(({ body }) => {
           expect(body.id).toBeDefined();
-          expect(body.user.id).toBe(USER.id);
+          expect(body.user).toEqual({ id: USER.id, name: USER.name });
           expect(body.product.gtin).toBe('00614141000418');
         }));
 
-    it('POST /digital-cards returns 400 for invalid userId (non-UUID)', () =>
+    it('POST /digital-cards returns the existing card (200) on a repeat scan', async () => {
+      const first = await createCard(accessToken).expect(201);
+      const second = await createCard(accessToken, '00614141000418').expect(
+        200,
+      );
+
+      expect(second.body.id).toBe(first.body.id);
+      expect(await prisma.digitalCard.count()).toBe(1);
+    });
+
+    it('POST /digital-cards refuses a userId in the body', () =>
       request(app.getHttpServer())
         .post('/digital-cards')
-        .send({ userId: 'not-a-uuid', gtin: '00614141000418' })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ userId: USER.id, gtin: '0614141000418' })
         .expect(400));
 
-    it('POST /digital-cards returns 404 for unknown GTIN', () =>
-      request(app.getHttpServer())
-        .post('/digital-cards')
-        .send({ userId: USER.id, gtin: '99999999999999' })
-        .expect(404));
+    it('POST /digital-cards returns 400 for an invalid GTIN and 404 for an unknown one', async () => {
+      await createCard(accessToken, '0614141000419').expect(400);
+      await createCard(accessToken, '4006381333931').expect(404);
+    });
+
+    it('GET /digital-cards/mine lists only my cards', async () => {
+      const other = await registerOther();
+      await createCard(accessToken).expect(201);
+      await createCard(other.accessToken).expect(201);
+
+      await request(app.getHttpServer())
+        .get('/digital-cards/mine')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body).toHaveLength(1);
+          expect(body[0].user.id).toBe(USER.id);
+        });
+    });
+
+    it("GET /digital-cards/:id returns 404 for another user's card", async () => {
+      const other = await registerOther();
+      const card = await createCard(other.accessToken).expect(201);
+
+      await request(app.getHttpServer())
+        .get(`/digital-cards/${card.body.id}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(404);
+      await request(app.getHttpServer())
+        .get(`/digital-cards/${card.body.id}`)
+        .set('Authorization', `Bearer ${other.accessToken}`)
+        .expect(200);
+    });
 
     it('GET /digital-cards/:id returns 400 for a non-UUID id', () =>
       request(app.getHttpServer())
         .get('/digital-cards/not-a-uuid')
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(400));
 
-    it('GET /digital-cards/:id returns 404 for an unknown card', () =>
-      request(app.getHttpServer())
-        .get('/digital-cards/00000000-0000-4000-8000-000000000099')
-        .expect(404));
-
-    it('GET /digital-cards/user/:userId returns 200 with cards array', () =>
+    it('GET /digital-cards/user/:userId is admin-only', () =>
       request(app.getHttpServer())
         .get(`/digital-cards/user/${USER.id}`)
-        .expect(200)
-        .expect(({ body }) => {
-          expect(Array.isArray(body)).toBe(true);
-        }));
-
-    it('GET /digital-cards/user/:userId returns 400 for non-UUID userId', () =>
-      request(app.getHttpServer())
-        .get('/digital-cards/user/not-a-uuid')
-        .expect(400));
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(403));
   });
 });
